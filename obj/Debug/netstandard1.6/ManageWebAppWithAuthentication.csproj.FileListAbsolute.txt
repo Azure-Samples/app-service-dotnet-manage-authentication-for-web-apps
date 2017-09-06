@@ -1,2 +1,0 @@
-C:\Sources\dotnet-samples\app-service-dotnet-manage-authentication-for-web-apps\bin\Debug\netstandard1.6\ManageWebAppWithAuthentication.deps.json
-C:\Sources\dotnet-samples\app-service-dotnet-manage-authentication-for-web-apps\obj\Debug\netstandard1.6\ManageWebAppWithAuthentication.csproj.CoreCompileInputs.cache

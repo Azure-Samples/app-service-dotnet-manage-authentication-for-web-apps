@@ -1,4 +1,0 @@
-C:\Sources\dotnet-samples\app-service-dotnet-manage-authentication-for-web-apps\bin\Debug\net452\ManageWebAppWithAuthentication.runtimeconfig.json
-C:\Sources\dotnet-samples\app-service-dotnet-manage-authentication-for-web-apps\bin\Debug\net452\ManageWebAppWithAuthentication.runtimeconfig.dev.json
-C:\Sources\dotnet-samples\app-service-dotnet-manage-authentication-for-web-apps\obj\Debug\net452\ManageWebAppWithAuthentication.csproj.ManageWebAppWithAuthentication.exe.config
-C:\Sources\dotnet-samples\app-service-dotnet-manage-authentication-for-web-apps\obj\Debug\net452\ManageWebAppWithAuthentication.csproj.CoreCompileInputs.cache
