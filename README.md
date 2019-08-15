@@ -4,19 +4,19 @@ languages:
 - csharp
 products:
 - azure
-services: App-Service
-platforms: dotnet
-author: yaohaizh
+extensions:
+- services: App-Service
+- platforms: dotnet
 ---
 
 # Getting started on managing authentication for Web Apps in C# #
 
-      Azure App Service sample for managing authentication for web apps.
-       - Create 4 web apps under the same new app service plan with:
-         - Active Directory login for 1
-         - Facebook login for 2
-         - Google login for 3
-         - Microsoft login for 4
+ Azure App Service sample for managing authentication for web apps.
+  - Create 4 web apps under the same new app service plan with:
+    - Active Directory login for 1
+    - Facebook login for 2
+    - Google login for 3
+    - Microsoft login for 4
 
 
 ## Running this Sample ##
