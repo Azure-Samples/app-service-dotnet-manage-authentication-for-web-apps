@@ -7,6 +7,7 @@ products:
 extensions:
 - services: App-Service
 - platforms: dotnet
+description: "Azure App Service sample for managing authentication for web apps."
 ---
 
 # Getting started on managing authentication for Web Apps in C# #
