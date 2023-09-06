@@ -111,8 +111,8 @@ namespace ManageWebAppWithAuthentication
                     },
                     AppServicePlanId = planId,
                 };
-                var webSite2_lro = await webSiteCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app2Name, webSiteData);
-                var webSite2 = webSite_lro.Value;
+                var webSite2_lro = await webSite2Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app2Name, webSite2Data);
+                var webSite2 = webSite2_lro.Value;
 
                 Utilities.Log("Created web app " + webSite2.Data.Name);
                 Utilities.Print(webSite2);
@@ -152,8 +152,8 @@ namespace ManageWebAppWithAuthentication
                     },
                     AppServicePlanId = planId,
                 };
-                var webSite3_lro = await webSiteCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app3Name, webSiteData);
-                var webSite3 = webSite_lro.Value;
+                var webSite3_lro = await webSite3Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app3Name, webSite3Data);
+                var webSite3 = webSite3_lro.Value;
 
                 Utilities.Log("Created web app " + webSite3.Data.Name);
                 Utilities.Print(webSite3);
@@ -192,8 +192,8 @@ namespace ManageWebAppWithAuthentication
                     },
                     AppServicePlanId = planId,
                 };
-                var webSite4_lro = await webSiteCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app4Name, webSiteData);
-                var webSite4 = webSite_lro.Value;
+                var webSite4_lro = await webSite4Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app4Name, webSite4Data);
+                var webSite4 = webSite4_lro.Value;
 
                 Utilities.Log("Created web app " + webSite4.Data.Name);
                 Utilities.Print(webSite4);
@@ -253,7 +253,7 @@ namespace ManageWebAppWithAuthentication
                 // Print selected subscription
                 Utilities.Log("Selected subscription: " + client.GetSubscriptions().Id);
 
-                RunSample(client);
+                await RunSample(client);
             }
             catch (Exception e)
             {
