@@ -1,19 +1,18 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See License.txt in the project root for license information.
 
-using Microsoft.Azure.Management.AppService.Fluent;
-using Microsoft.Azure.Management.Fluent;
-using Microsoft.Azure.Management.ResourceManager.Fluent;
-using Microsoft.Azure.Management.ResourceManager.Fluent.Authentication;
-using Microsoft.Azure.Management.ResourceManager.Fluent.Core;
-using Microsoft.Azure.Management.Samples.Common;
-using Microsoft.Azure.Management.TrafficManager.Fluent;
+using Azure;
+using Azure.Core;
+using Azure.Identity;
+using Azure.ResourceManager;
+using Azure.ResourceManager.AppService;
+using Azure.ResourceManager.AppService.Models;
+using Azure.ResourceManager.Resources;
+using Azure.ResourceManager.Samples.Common;
 using System;
-using System.Linq;
-using System.Diagnostics;
 using System.IO;
-using System.Net.Http;
-using Microsoft.Azure.Management.AppService.Fluent.Models;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace ManageWebAppWithAuthentication
 {
@@ -28,18 +27,21 @@ namespace ManageWebAppWithAuthentication
 
     public class Program
     {
-        public static void RunSample(IAzure azure)
+        public static async Task RunSample(ArmClient client)
         {
+            AzureLocation region = AzureLocation.EastUS;
             string suffix = ".azurewebsites.net";
-            string app1Name = SdkContext.RandomResourceName("webapp1-", 20);
-            string app2Name = SdkContext.RandomResourceName("webapp2-", 20);
-            string app3Name = SdkContext.RandomResourceName("webapp3-", 20);
-            string app4Name = SdkContext.RandomResourceName("webapp4-", 20);
+            string app1Name = Utilities.CreateRandomName("webapp1-");
+            string app2Name = Utilities.CreateRandomName("webapp2-");
+            string app3Name = Utilities.CreateRandomName("webapp3-");
+            string app4Name = Utilities.CreateRandomName("webapp4-");
             string app1Url = app1Name + suffix;
             string app2Url = app2Name + suffix;
             string app3Url = app3Name + suffix;
             string app4Url = app4Name + suffix;
-            string rgName = SdkContext.RandomResourceName("rg1NEMV_", 24);
+            string rgName = Utilities.CreateRandomName("rg1NEMV_");
+            var lro = await client.GetDefaultSubscription().GetResourceGroups().CreateOrUpdateAsync(Azure.WaitUntil.Completed, rgName, new ResourceGroupData(AzureLocation.EastUS));
+            var resourceGroup = lro.Value;
 
             try
             {
@@ -50,16 +52,20 @@ namespace ManageWebAppWithAuthentication
 
                 Utilities.Log("Creating web app " + app1Name + " in resource group " + rgName + "...");
 
-                IWebApp app1 = azure.WebApps.Define(app1Name)
-                        .WithRegion(Region.USWest)
-                        .WithNewResourceGroup(rgName)
-                        .WithNewWindowsPlan(PricingTier.StandardS1)
-                        .WithJavaVersion(JavaVersion.V8Newest)
-                        .WithWebContainer(WebContainer.Tomcat8_0Newest)
-                        .Create();
+                var webSiteCollection = resourceGroup.GetWebSites();
+                var webSiteData = new WebSiteData(region)
+                {
+                    SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                    {
+                        WindowsFxVersion = "PricingTier.StandardS1",
+                        NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                    }
+                };
+                var webSite_lro = await webSiteCollection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app1Name, webSiteData);
+                var webSite = webSite_lro.Value;
 
-                Utilities.Log("Created web app " + app1.Name);
-                Utilities.Print(app1);
+                Utilities.Log("Created web app " + webSite.Data.Name);
+                Utilities.Print(webSite);
 
                 //============================================================
                 // Set up active directory authentication
@@ -72,30 +78,44 @@ namespace ManageWebAppWithAuthentication
 
                 Utilities.Log("Updating web app " + app1Name + " to use active directory login...");
 
-                app1.Update()
-                        .DefineAuthentication()
-                            .WithDefaultAuthenticationProvider(BuiltInAuthenticationProvider.AzureActiveDirectory)
-                            .WithActiveDirectory(applicationId, "https://sts.windows.net/" + tenantId)
-                            .Attach()
-                        .Apply();
+                await webSite.UpdateAuthSettingsV2Async(new Azure.ResourceManager.AppService.Models.SiteAuthSettingsV2()
+                {
+                    IdentityProviders = new AppServiceIdentityProviders()
+                    {
+                        AzureActiveDirectory = new AppServiceAadProvider()
+                        {
+                            Registration = new AppServiceAadRegistration(),
+                            Validation = new AppServiceAadValidation()
+                            {
+                                DefaultAuthorizationPolicy = new DefaultAuthorizationPolicy()
+                            }
+                        }
+                    }
+                });
 
-                Utilities.Log("Added active directory login to " + app1.Name);
-                Utilities.Print(app1);
+                Utilities.Log("Added active directory login to " + webSite.Data.Name);
+                Utilities.Print(webSite);
 
                 //============================================================
                 // Create a second web app
 
                 Utilities.Log("Creating another web app " + app2Name + " in resource group " + rgName + "...");
-                IAppServicePlan plan = azure.AppServices.AppServicePlans.GetById(app1.AppServicePlanId);
-                IWebApp app2 = azure.WebApps.Define(app2Name)
-                        .WithExistingWindowsPlan(plan)
-                        .WithExistingResourceGroup(rgName)
-                        .WithJavaVersion(JavaVersion.V8Newest)
-                        .WithWebContainer(WebContainer.Tomcat8_0Newest)
-                        .Create();
+                var planId = webSite.Data.AppServicePlanId;
+                var webSite2Collection = resourceGroup.GetWebSites();
+                var webSite2Data = new WebSiteData(region)
+                {
+                    SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                    {
+                        WindowsFxVersion = "PricingTier.StandardS1",
+                        NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                    },
+                    AppServicePlanId = planId,
+                };
+                var webSite2_lro = await webSite2Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app2Name, webSite2Data);
+                var webSite2 = webSite2_lro.Value;
 
-                Utilities.Log("Created web app " + app2.Name);
-                Utilities.Print(app2);
+                Utilities.Log("Created web app " + webSite2.Data.Name);
+                Utilities.Print(webSite2);
 
                 //============================================================
                 // Set up Facebook authentication
@@ -108,31 +128,35 @@ namespace ManageWebAppWithAuthentication
 
                 Utilities.Log("Updating web app " + app2Name + " to use Facebook login...");
 
-                app2.Update()
-                        .DefineAuthentication()
-                            .WithDefaultAuthenticationProvider(BuiltInAuthenticationProvider.Facebook)
-                            .WithFacebook(fbAppId, fbAppSecret)
-                            .Attach()
-                        .Apply();
+                await webSite2.UpdateAuthSettingsAsync(new SiteAuthSettings()
+                {
+                    FacebookAppId = fbAppId,
+                    FacebookAppSecret = fbAppSecret
+                });
 
-                Utilities.Log("Added Facebook login to " + app2.Name);
-                Utilities.Print(app2);
+                Utilities.Log("Added Facebook login to " + webSite2.Data.Name);
+                Utilities.Print(webSite2);
 
                 //============================================================
                 // Create a 3rd web app with a public GitHub repo in Azure-Samples
 
                 Utilities.Log("Creating another web app " + app3Name + "...");
-                IWebApp app3 = azure.WebApps.Define(app3Name)
-                        .WithExistingWindowsPlan(plan)
-                        .WithNewResourceGroup(rgName)
-                        .DefineSourceControl()
-                            .WithPublicGitRepository("https://github.com/Azure-Samples/app-service-web-dotnet-get-started")
-                            .WithBranch("master")
-                            .Attach()
-                        .Create();
 
-                Utilities.Log("Created web app " + app3.Name);
-                Utilities.Print(app3);
+                var webSite3Collection = resourceGroup.GetWebSites();
+                var webSite3Data = new WebSiteData(region)
+                {
+                    SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                    {
+                        WindowsFxVersion = "PricingTier.StandardS1",
+                        NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                    },
+                    AppServicePlanId = planId,
+                };
+                var webSite3_lro = await webSite3Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app3Name, webSite3Data);
+                var webSite3 = webSite3_lro.Value;
+
+                Utilities.Log("Created web app " + webSite3.Data.Name);
+                Utilities.Print(webSite3);
 
                 //============================================================
                 // Set up Google authentication
@@ -145,28 +169,34 @@ namespace ManageWebAppWithAuthentication
 
                 Utilities.Log("Updating web app " + app3Name + " to use Google login...");
 
-                app3.Update()
-                        .DefineAuthentication()
-                            .WithDefaultAuthenticationProvider(BuiltInAuthenticationProvider.Google)
-                            .WithGoogle(gClientId, gClientSecret)
-                            .Attach()
-                        .Apply();
+                await webSite2.UpdateAuthSettingsAsync(new SiteAuthSettings()
+                {
+                    GoogleClientId = gClientId,
+                    GoogleClientSecret = gClientSecret
+                });
 
-                Utilities.Log("Added Google login to " + app3.Name);
-                Utilities.Print(app3);
+                Utilities.Log("Added Google login to " + webSite3.Data.Name);
+                Utilities.Print(webSite3);
 
                 //============================================================
                 // Create a 4th web app
 
                 Utilities.Log("Creating another web app " + app4Name + "...");
-                IWebApp app4 = azure.WebApps
-                        .Define(app4Name)
-                        .WithExistingWindowsPlan(plan)
-                        .WithExistingResourceGroup(rgName)
-                        .Create();
+                var webSite4Collection = resourceGroup.GetWebSites();
+                var webSite4Data = new WebSiteData(region)
+                {
+                    SiteConfig = new Azure.ResourceManager.AppService.Models.SiteConfigProperties()
+                    {
+                        WindowsFxVersion = "PricingTier.StandardS1",
+                        NetFrameworkVersion = "NetFrameworkVersion.V4_6",
+                    },
+                    AppServicePlanId = planId,
+                };
+                var webSite4_lro = await webSite4Collection.CreateOrUpdateAsync(Azure.WaitUntil.Completed, app4Name, webSite4Data);
+                var webSite4 = webSite4_lro.Value;
 
-                Utilities.Log("Created web app " + app4.Name);
-                Utilities.Print(app4);
+                Utilities.Log("Created web app " + webSite4.Data.Name);
+                Utilities.Print(webSite4);
 
                 //============================================================
                 // Set up Google authentication
@@ -179,22 +209,21 @@ namespace ManageWebAppWithAuthentication
 
                 Utilities.Log("Updating web app " + app3Name + " to use Microsoft login...");
 
-                app4.Update()
-                        .DefineAuthentication()
-                            .WithDefaultAuthenticationProvider(BuiltInAuthenticationProvider.MicrosoftAccount)
-                            .WithMicrosoft(clientId, clientSecret)
-                            .Attach()
-                        .Apply();
+                await webSite2.UpdateAuthSettingsAsync(new SiteAuthSettings()
+                {
+                    MicrosoftAccountClientId = clientId,
+                    MicrosoftAccountClientSecret = clientSecret,
+                });
 
-                Utilities.Log("Added Microsoft login to " + app4.Name);
-                Utilities.Print(app4);
+                Utilities.Log("Added Microsoft login to " + webSite4.Data.Name);
+                Utilities.Print(webSite4);
             }
             finally
             {
                 try
                 {
                     Utilities.Log("Deleting Resource Group: " + rgName);
-                    azure.ResourceGroups.DeleteByName(rgName);
+                    await resourceGroup.DeleteAsync(WaitUntil.Completed);
                     Utilities.Log("Deleted Resource Group: " + rgName);
                 }
                 catch (NullReferenceException)
@@ -208,24 +237,23 @@ namespace ManageWebAppWithAuthentication
             }
         }
 
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
             try
             {
                 //=================================================================
                 // Authenticate
-                var credentials = SdkContext.AzureCredentialsFactory.FromFile(Environment.GetEnvironmentVariable("AZURE_AUTH_LOCATION"));
-
-                var azure = Azure
-                    .Configure()
-                    .WithLogLevel(HttpLoggingDelegatingHandler.Level.Basic)
-                    .Authenticate(credentials)
-                    .WithDefaultSubscription();
+                var clientId = Environment.GetEnvironmentVariable("CLIENT_ID");
+                var clientSecret = Environment.GetEnvironmentVariable("CLIENT_SECRET");
+                var tenantId = Environment.GetEnvironmentVariable("TENANT_ID");
+                var subscription = Environment.GetEnvironmentVariable("SUBSCRIPTION_ID");
+                ClientSecretCredential credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+                ArmClient client = new ArmClient(credential, subscription);
 
                 // Print selected subscription
-                Utilities.Log("Selected subscription: " + azure.SubscriptionId);
+                Utilities.Log("Selected subscription: " + client.GetSubscriptions().Id);
 
-                RunSample(azure);
+                await RunSample(client);
             }
             catch (Exception e)
             {
